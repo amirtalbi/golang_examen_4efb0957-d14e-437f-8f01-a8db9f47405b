@@ -145,11 +145,30 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 		return
 	}
 
-	// Révoquer le token en l'ajoutant à la liste noire
+	// Récupérer le refresh token du corps de la requête
+	var request struct {
+		RefreshToken string `json:"refreshToken" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&request); err != nil {
+		log.Printf("❌ ERREUR LOGOUT: Format JSON invalide: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	// Révoquer le token d'accès
 	err := h.authService.RevokeToken(token.(string))
 	if err != nil {
-		log.Printf("❌ Erreur lors de la révocation du token: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to revoke token"})
+		log.Printf("❌ Erreur lors de la révocation du token d'accès: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to revoke access token"})
+		return
+	}
+
+	// Révoquer également le refresh token
+	err = h.authService.RevokeToken(request.RefreshToken)
+	if err != nil {
+		log.Printf("❌ Erreur lors de la révocation du refresh token: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to revoke refresh token"})
 		return
 	}
 

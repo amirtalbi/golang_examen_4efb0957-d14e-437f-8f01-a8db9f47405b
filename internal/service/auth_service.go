@@ -155,32 +155,43 @@ func (s *authService) ValidateToken(token string) (string, error) {
 func (s *authService) RefreshToken(refreshToken string) (*models.AuthResponse, error) {
 	log.Printf(" REFRESH TOKEN - Token à vérifier: %s", refreshToken)
 
-	userID, _ := auth.ValidateRefreshToken(refreshToken, s.config.JWTSecret)
-	
-	if userID == "" {
-		userID = generateUUID()
+	// Vérifier si le refresh token est révoqué
+	if s.IsTokenRevoked(refreshToken) {
+		log.Printf("❌ REFRESH REFUSÉ: Token révoqué")
+		return nil, ErrInvalidToken
 	}
 
-	user := &models.User{
-		ID:       userID,
-		Name:     "Test User",
-		Email:    "test@example.com",
-		Password: "hashedpassword",
+	userID, err := auth.ValidateRefreshToken(refreshToken, s.config.JWTSecret)
+	if err != nil || userID == "" {
+		log.Printf("❌ REFRESH REFUSÉ: Token invalide - %v", err)
+		return nil, ErrInvalidToken
 	}
 
+	// Récupérer l'utilisateur depuis la base de données
+	user, err := s.userRepo.FindByID(userID)
+	if err != nil {
+		log.Printf("❌ REFRESH REFUSÉ: Utilisateur non trouvé - %v", err)
+		return nil, ErrUserNotFound
+	}
+
+	// Générer un nouveau token d'accès
 	newToken, err := auth.GenerateToken(userID, s.config.JWTSecret, s.config.TokenExpiryHours)
 	if err != nil {
 		log.Printf("RefreshToken failed: Error generating token: %v", err)
 		return nil, err
 	}
 
+	// Générer un nouveau refresh token
 	newRefreshToken, err := auth.GenerateRefreshToken(userID, s.config.JWTSecret)
 	if err != nil {
 		log.Printf("RefreshToken failed: Error generating refresh token: %v", err)
 		return nil, err
 	}
 
-	log.Printf("REFRESH RÉUSSI: Nouveau token généré pour l'utilisateur %s", userID)
+	// Révoquer l'ancien refresh token pour éviter sa réutilisation
+	s.RevokeToken(refreshToken)
+
+	log.Printf("✅ REFRESH RÉUSSI: Nouveau token généré pour l'utilisateur %s", userID)
 
 	return &models.AuthResponse{
 		Token:        newToken,
