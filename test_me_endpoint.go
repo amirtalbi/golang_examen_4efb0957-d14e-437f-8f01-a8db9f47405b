@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -9,26 +8,18 @@ import (
 )
 
 func main() {
-	// Create a new user with simple credentials
-	registerData := map[string]string{
-		"name":     "testuser",
-		"email":    "test@example.com",
-		"password": "password123",
-	}
-
-	// Convert to JSON
-	jsonData, err := json.Marshal(registerData)
-	if err != nil {
-		log.Fatalf("Failed to marshal JSON: %v", err)
-	}
+	// Get the token from the login response
+	token := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDMwNzc4NjUsImlhdCI6MTc0Mjk5MTQ2NSwidXNlcl9pZCI6IjQzMmE5MWQxLTUxZWQtNDZkOS1iMjk3LTI0MWI1Y2ZmMWJiZiJ9.jKdoFTVFLi-147IuyBt6maUFmmlyl6tQhNUrMJopc80"
 
 	// Create request
-	url := "http://localhost:8080/567088a9-6689-4e67-b5e5-ed40ad0a830c/register"
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	url := "http://localhost:8081/4efb0957-d14e-437f-8f01-a8db9f47405b/me"
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		log.Fatalf("Failed to create request: %v", err)
 	}
-	req.Header.Set("Content-Type", "application/json")
+	
+	// Set the Authorization header with the token
+	req.Header.Set("Authorization", "Bearer "+token)
 
 	// Send request
 	client := &http.Client{}
