@@ -80,8 +80,10 @@ func (r *inMemoryUserRepository) SaveResetToken(email, token string, expiry time
 
 	for _, user := range r.users {
 		if user.Email == email {
-			user.ResetToken = token
-			user.ResetTokenExpires = expiry
+			tokenCopy := token
+			user.ResetToken = &tokenCopy
+			expiryCopy := expiry
+			user.ResetTokenExpires = &expiryCopy
 			user.UpdatedAt = time.Now()
 			return nil
 		}
@@ -94,7 +96,8 @@ func (r *inMemoryUserRepository) FindByResetToken(token string) (*models.User, e
 	defer r.mutex.RUnlock()
 
 	for _, user := range r.users {
-		if user.ResetToken == token && user.ResetTokenExpires.After(time.Now()) {
+		if user.ResetToken != nil && *user.ResetToken == token && 
+		   user.ResetTokenExpires != nil && user.ResetTokenExpires.After(time.Now()) {
 			return user, nil
 		}
 	}
@@ -107,7 +110,8 @@ func (r *inMemoryUserRepository) UpdatePassword(id, password string) error {
 
 	if user, exists := r.users[id]; exists {
 		user.Password = password
-		user.ResetToken = ""
+		user.ResetToken = nil
+		user.ResetTokenExpires = nil
 		user.UpdatedAt = time.Now()
 		return nil
 	}

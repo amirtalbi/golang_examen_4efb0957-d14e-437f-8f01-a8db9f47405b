@@ -46,17 +46,26 @@ func (h *AuthHandler) Register(c *gin.Context) {
 func (h *AuthHandler) Login(c *gin.Context) {
 	var request models.LoginRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid credentials"})
+		return
+	}
+
+	if request.Email == "" || request.Password == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid credentials"})
 		return
 	}
 
 	response, err := h.authService.Login(request)
 	if err != nil {
-		if err == service.ErrInvalidCredentials {
+		log.Printf("Login error: %v", err)
+		errorMsg := err.Error()
+		if errorMsg == "user not found" || errorMsg == "password mismatch" {
+			log.Printf("Returning 401 for error: %s", errorMsg)
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
-			return
+		} else {
+			log.Printf("Returning 400 for error: %s", errorMsg)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid credentials"})
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Login failed"})
 		return
 	}
 
@@ -95,6 +104,17 @@ func (h *AuthHandler) ResetPassword(c *gin.Context) {
 		return
 	}
 
+	err := h.authService.ResetPassword(request)
+	if err != nil {
+		log.Printf("Reset password error: %v", err)
+		if err == service.ErrInvalidToken {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
+		} else {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to reset password"})
+		}
+		return
+	}
+
 	c.Status(http.StatusNoContent)
 }
 
@@ -112,60 +132,52 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 		return
 	}
 
-	// Blacklist the access token
 	err := h.authService.BlacklistToken(token)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process logout"})
 		return
 	}
 
-	log.Printf("🔑 DÉCONNEXION RÉUSSIE: Token invalidé pour l'utilisateur %s", userID)
+	log.Printf(" DÉCONNEXION RÉUSSIE: Token invalidé pour l'utilisateur %s", userID)
 	c.Status(http.StatusNoContent)
 }
 
 func (h *AuthHandler) RefreshToken(c *gin.Context) {
-	// Lire le corps de la requête raw pour le logger
 	bodyBytes, err := io.ReadAll(c.Request.Body)
 	if err != nil {
-		log.Printf("❌ ERREUR REFRESH: Impossible de lire le corps de la requête: %v", err)
+		log.Printf(" ERREUR REFRESH: Impossible de lire le corps de la requête: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
 	}
 
-	// Restaurer le corps pour que Gin puisse le lire à nouveau
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
-	// Logger le corps brut reçu
-	log.Printf("📥 REFRESH TOKEN - Corps reçu: %s", string(bodyBytes))
+	log.Printf(" REFRESH TOKEN - Corps reçu: %s", string(bodyBytes))
 
 	var request struct {
 		RefreshToken string `json:"refreshToken" binding:"required"`
 	}
 
 	if err := c.ShouldBindJSON(&request); err != nil {
-		log.Printf("❌ ERREUR REFRESH: Format JSON invalide: %v", err)
+		log.Printf(" ERREUR REFRESH: Format JSON invalide: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	// Logger le token de rafraîchissement extrait
-	log.Printf("🔑 REFRESH TOKEN - Token à vérifier: %s", request.RefreshToken)
+	log.Printf(" REFRESH TOKEN - Token à vérifier: %s", request.RefreshToken)
 
-	// Vérifier si le refresh token est valide
 	response, err := h.authService.RefreshToken(request.RefreshToken)
 	if err != nil {
 		if err == service.ErrInvalidToken {
-			log.Printf("❌ REFRESH ÉCHOUÉ: Token invalide ou expiré")
+			log.Printf(" REFRESH ÉCHOUÉ: Token invalide ou expiré")
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired refresh token"})
 			return
 		}
-		log.Printf("❌ REFRESH ÉCHOUÉ: Erreur interne: %v", err)
+		log.Printf(" REFRESH ÉCHOUÉ: Erreur interne: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to refresh token"})
 		return
 	}
 
-	log.Printf("✅ REFRESH RÉUSSI: Nouveau token généré pour l'utilisateur %s", response.User.ID)
+	log.Printf(" REFRESH RÉUSSI: Nouveau token généré pour l'utilisateur %s", response.User.ID)
 	c.JSON(http.StatusOK, response)
 }
-
-// Ajouter test intégration pour l'authentification

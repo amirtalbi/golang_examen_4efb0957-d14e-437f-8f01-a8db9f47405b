@@ -1,6 +1,8 @@
 package middleware
 
 import (
+	"bytes"
+	"io"
 	"log"
 	"net/http"
 	"strings"
@@ -40,6 +42,16 @@ func LoggerMiddleware() gin.HandlerFunc {
 		// Pour les requêtes avec un corps
 		if method == "POST" || method == "PUT" || method == "PATCH" {
 			log.Printf("📊 TYPE DE CONTENU: %s", c.ContentType())
+			
+			// Lire et logger le corps de la requête
+			var bodyBytes []byte
+			if c.Request.Body != nil {
+				bodyBytes, _ = io.ReadAll(c.Request.Body)
+				// Restaurer le corps pour que les handlers puissent le lire
+				c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+				// Logger le corps de la requête
+				log.Printf("📄 CORPS DE LA REQUÊTE: %s", string(bodyBytes))
+			}
 		}
 
 		// Calcul du temps de traitement
@@ -59,21 +71,16 @@ func LoggerMiddleware() gin.HandlerFunc {
 
 func AuthMiddleware(authService service.AuthService) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		log.Printf("\n🔒 AUTHENTIFICATION - %s %s", c.Request.Method, c.Request.URL.Path)
-
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
-			log.Printf("❌ ERREUR AUTH: Header d'autorisation manquant")
-			log.Printf("❌ DÉTAILS: %s %s", c.Request.Method, c.Request.URL.Path)
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header is required"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 			c.Abort()
 			return
 		}
 
 		parts := strings.Split(authHeader, " ")
 		if len(parts) != 2 || parts[0] != "Bearer" {
-			log.Printf("❌ ERREUR AUTH: Format d'autorisation invalide")
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid authorization format"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 			c.Abort()
 			return
 		}
@@ -81,13 +88,11 @@ func AuthMiddleware(authService service.AuthService) gin.HandlerFunc {
 		tokenString := parts[1]
 		userID, err := authService.ValidateToken(tokenString)
 		if err != nil {
-			log.Printf("❌ ERREUR AUTH: Token invalide - %v", err)
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 			c.Abort()
 			return
 		}
 
-		log.Printf("✅ AUTH RÉUSSIE: Utilisateur %s authentifié", userID)
 		c.Set("token", tokenString)
 		c.Set("userID", userID)
 		c.Next()

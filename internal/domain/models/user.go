@@ -5,14 +5,14 @@ import (
 )
 
 type User struct {
-	ID                string    `json:"id"`
-	Name              string    `json:"name"`
-	Email             string    `json:"email"`
-	Password          string    `json:"-"`
-	ResetToken        string    `json:"-"`
-	ResetTokenExpires time.Time `json:"-"`
-	CreatedAt         time.Time `json:"created_at"`
-	UpdatedAt         time.Time `json:"updated_at"`
+	ID                string     `json:"id" db:"id"`
+	Name              string     `json:"name" db:"name"`
+	Email             string     `json:"email" db:"email"`
+	Password          string     `json:"-" db:"password"`
+	ResetToken        *string    `json:"-" db:"reset_token"`
+	ResetTokenExpires *time.Time `json:"-" db:"reset_token_expires"`
+	CreatedAt         time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt         time.Time  `json:"updated_at" db:"updated_at"`
 }
 
 type RegisterRequest struct {

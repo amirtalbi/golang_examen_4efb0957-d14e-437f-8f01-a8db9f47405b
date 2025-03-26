@@ -1,6 +1,7 @@
 package repositories
 
 import (
+	"log"
 	"time"
 
 	"github.com/amirtalbi/examen_go/internal/domain/models"
@@ -33,10 +34,14 @@ func (r *postgresUserRepository) Create(user *models.User) error {
 func (r *postgresUserRepository) FindByEmail(email string) (*models.User, error) {
 	var user models.User
 	query := "SELECT * FROM users WHERE email = $1"
+	
+	log.Printf("Searching for user with email: %s", email)
 	err := r.db.Get(&user, query, email)
 	if err != nil {
+		log.Printf("Error finding user by email: %v", err)
 		return nil, ErrUserNotFound
 	}
+	log.Printf("Found user: %s with ID: %s", user.Email, user.ID)
 	return &user, nil
 }
 

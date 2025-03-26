@@ -38,7 +38,9 @@ services:
       - pgadmin_data:/var/lib/pgadmin
 
   api:
-    image: ghcr.io/amirtalbi/examen_go:latest
+    build: 
+      context: .
+      dockerfile: Dockerfile
     container_name: examen_go_api
     environment:
       SERVER_PORT: ${SERVER_PORT}
