@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log"
 	"sync"
-	"time"
 
 	"github.com/amirtalbi/examen_go/internal/config"
 	"github.com/amirtalbi/examen_go/internal/domain/models"
@@ -30,8 +29,6 @@ type AuthService interface {
 	RefreshToken(refreshToken string) (*models.AuthResponse, error)
 	ForgotPassword(email string) error
 	ResetPassword(request models.ResetPasswordRequest) error
-	VerifyEmail(token string) error
-	ResendVerificationEmail(email string) error
 }
 
 type authService struct {
@@ -39,8 +36,6 @@ type authService struct {
 	config             *config.Config
 	resetTokens        map[string]string
 	resetTokensMutex   sync.RWMutex
-	verifyTokens       map[string]string
-	verifyTokensMutex  sync.RWMutex
 	refreshTokens      map[string]string
 	refreshTokensMutex sync.RWMutex
 }
@@ -50,13 +45,12 @@ func NewAuthService(userRepo repositories.UserRepository, config *config.Config)
 		userRepo:      userRepo,
 		config:        config,
 		resetTokens:   make(map[string]string),
-		verifyTokens:  make(map[string]string),
 		refreshTokens: make(map[string]string),
 	}
 }
 
 func (s *authService) Register(request models.RegisterRequest) (*models.AuthResponse, error) {
-	existingUser, err := s.userRepo.GetByEmail(request.Email)
+	existingUser, err := s.userRepo.FindByEmail(request.Email)
 	if err == nil && existingUser != nil {
 		return nil, ErrUserAlreadyExists
 	}
@@ -100,7 +94,7 @@ func (s *authService) Register(request models.RegisterRequest) (*models.AuthResp
 }
 
 func (s *authService) Login(request models.LoginRequest) (*models.AuthResponse, error) {
-	user, err := s.userRepo.GetByEmail(request.Email)
+	user, err := s.userRepo.FindByEmail(request.Email)
 	if err != nil || user == nil {
 		return nil, ErrUserNotFound
 	}
@@ -181,7 +175,7 @@ func generateUUID() string {
 }
 
 func (s *authService) ForgotPassword(email string) error {
-	user, err := s.userRepo.GetByEmail(email)
+	user, err := s.userRepo.FindByEmail(email)
 	if err != nil || user == nil {
 		return ErrUserNotFound
 	}
@@ -192,7 +186,7 @@ func (s *authService) ForgotPassword(email string) error {
 	s.resetTokens[token] = user.ID
 	s.resetTokensMutex.Unlock()
 
-	resetLink := fmt.Sprintf("%s/reset-password?token=%s", s.config.AppURL, token)
+	resetLink := fmt.Sprintf("%s/reset-password?token=%s", "http://localhost:8080", token)
 	log.Printf("Reset password link for %s: %s", email, resetLink)
 
 	return nil
@@ -212,13 +206,13 @@ func (s *authService) ResetPassword(request models.ResetPasswordRequest) error {
 		return err
 	}
 
-	user, err := s.userRepo.GetByID(userID)
+	user, err := s.userRepo.FindByID(userID)
 	if err != nil || user == nil {
 		return ErrUserNotFound
 	}
 
 	user.Password = hashedPassword
-	err = s.userRepo.Update(user)
+	err = s.userRepo.UpdatePassword(user.ID, hashedPassword)
 	if err != nil {
 		return err
 	}
@@ -230,62 +224,7 @@ func (s *authService) ResetPassword(request models.ResetPasswordRequest) error {
 	return nil
 }
 
-func (s *authService) VerifyEmail(token string) error {
-	s.verifyTokensMutex.RLock()
-	userID, exists := s.verifyTokens[token]
-	s.verifyTokensMutex.RUnlock()
-
-	if !exists {
-		return ErrInvalidToken
-	}
-
-	user, err := s.userRepo.GetByID(userID)
-	if err != nil || user == nil {
-		return ErrUserNotFound
-	}
-
-	user.Verified = true
-	err = s.userRepo.Update(user)
-	if err != nil {
-		return err
-	}
-
-	s.verifyTokensMutex.Lock()
-	delete(s.verifyTokens, token)
-	s.verifyTokensMutex.Unlock()
-
-	return nil
-}
-
-func (s *authService) ResendVerificationEmail(email string) error {
-	user, err := s.userRepo.GetByEmail(email)
-	if err != nil || user == nil {
-		return ErrUserNotFound
-	}
-
-	if user.Verified {
-		return nil
-	}
-
-	token := generateVerificationToken()
-
-	s.verifyTokensMutex.Lock()
-	s.verifyTokens[token] = user.ID
-	s.verifyTokensMutex.Unlock()
-
-	verificationLink := fmt.Sprintf("%s/verify-email?token=%s", s.config.AppURL, token)
-	log.Printf("Verification link for %s: %s", email, verificationLink)
-
-	return nil
-}
-
 func generateResetToken() string {
-	b := make([]byte, 16)
-	rand.Read(b)
-	return hex.EncodeToString(b)
-}
-
-func generateVerificationToken() string {
 	b := make([]byte, 16)
 	rand.Read(b)
 	return hex.EncodeToString(b)

@@ -60,11 +60,10 @@ func ValidateToken(tokenString string, secret string) (string, error) {
 	return "", errors.New("invalid token")
 }
 
-// GenerateRefreshToken crée un token de rafraîchissement avec une durée de validité plus longue
 func GenerateRefreshToken(userID string, secret string) (string, error) {
 	claims := jwt.MapClaims{
 		"user_id": userID,
-		"exp":     time.Now().Add(time.Hour * 24 * 30).Unix(), // 30 jours
+		"exp":     time.Now().Add(time.Hour * 24 * 30).Unix(),
 		"iat":     time.Now().Unix(),
 		"type":    "refresh",
 	}
@@ -73,7 +72,6 @@ func GenerateRefreshToken(userID string, secret string) (string, error) {
 	return token.SignedString([]byte(secret))
 }
 
-// ValidateRefreshToken vérifie si un refresh token est valide
 func ValidateRefreshToken(tokenString string, secret string) (string, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -87,7 +85,6 @@ func ValidateRefreshToken(tokenString string, secret string) (string, error) {
 	}
 
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-		// Vérifier que c'est bien un refresh token
 		tokenType, ok := claims["type"].(string)
 		if !ok || tokenType != "refresh" {
 			return "", errors.New("invalid token type")

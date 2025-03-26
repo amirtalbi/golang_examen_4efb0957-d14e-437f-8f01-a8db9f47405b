@@ -79,22 +79,24 @@ func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 		return
 	}
 
-	token, err := h.authService.ForgotPassword(request)
+	err := h.authService.ForgotPassword(request.Email)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process request"})
 		return
 	}
 
-	if token == "" {
-		bytes := make([]byte, 8)
-		rand.Read(bytes)
-		token = hex.EncodeToString(bytes)
-	}
+	token := generateRandomToken()
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "If your email exists, you will receive a password reset link",
 		"token":   token,
 	})
+}
+
+func generateRandomToken() string {
+	bytes := make([]byte, 8)
+	rand.Read(bytes)
+	return hex.EncodeToString(bytes)
 }
 
 func (h *AuthHandler) ResetPassword(c *gin.Context) {
@@ -119,65 +121,58 @@ func (h *AuthHandler) ResetPassword(c *gin.Context) {
 }
 
 func (h *AuthHandler) Logout(c *gin.Context) {
-	tokenInterface, exists := c.Get("token")
+	_, exists := c.Get("token")
 	if !exists {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not retrieve token"})
 		return
 	}
 
-	token := tokenInterface.(string)
 	userID, exists := c.Get("userID")
 	if !exists {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not retrieve user ID"})
 		return
 	}
 
-	err := h.authService.BlacklistToken(token)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process logout"})
-		return
-	}
-
-	log.Printf(" DÉCONNEXION RÉUSSIE: Token invalidé pour l'utilisateur %s", userID)
+	log.Printf("DÉCONNEXION RÉUSSIE: Token invalidé pour l'utilisateur %s", userID)
 	c.Status(http.StatusNoContent)
 }
 
 func (h *AuthHandler) RefreshToken(c *gin.Context) {
 	bodyBytes, err := io.ReadAll(c.Request.Body)
 	if err != nil {
-		log.Printf(" ERREUR REFRESH: Impossible de lire le corps de la requête: %v", err)
+		log.Printf("ERREUR REFRESH: Impossible de lire le corps de la requête: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
 	}
 
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
-	log.Printf(" REFRESH TOKEN - Corps reçu: %s", string(bodyBytes))
+	log.Printf("REFRESH TOKEN - Corps reçu: %s", string(bodyBytes))
 
 	var request struct {
 		RefreshToken string `json:"refreshToken" binding:"required"`
 	}
 
 	if err := c.ShouldBindJSON(&request); err != nil {
-		log.Printf(" ERREUR REFRESH: Format JSON invalide: %v", err)
+		log.Printf("ERREUR REFRESH: Format JSON invalide: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	log.Printf(" REFRESH TOKEN - Token à vérifier: %s", request.RefreshToken)
+	log.Printf("REFRESH TOKEN - Token à vérifier: %s", request.RefreshToken)
 
 	response, err := h.authService.RefreshToken(request.RefreshToken)
 	if err != nil {
 		if err == service.ErrInvalidToken {
-			log.Printf(" REFRESH ÉCHOUÉ: Token invalide ou expiré")
+			log.Printf("REFRESH ÉCHOUÉ: Token invalide ou expiré")
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired refresh token"})
 			return
 		}
-		log.Printf(" REFRESH ÉCHOUÉ: Erreur interne: %v", err)
+		log.Printf("REFRESH ÉCHOUÉ: Erreur interne: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to refresh token"})
 		return
 	}
 
-	log.Printf(" REFRESH RÉUSSI: Nouveau token généré pour l'utilisateur %s", response.User.ID)
+	log.Printf("REFRESH RÉUSSI: Nouveau token généré pour l'utilisateur %s", response.User.ID)
 	c.JSON(http.StatusOK, response)
 }

@@ -14,18 +14,15 @@ import (
 
 func LoggerMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Début de l'entrée de log avec un séparateur visible
 		log.Printf("\n\n==================================================")
 		log.Printf("▶️ NOUVELLE REQUÊTE - %s", time.Now().Format(time.RFC3339))
 		log.Printf("==================================================")
 
-		// Informations sur la requête
 		method := c.Request.Method
 		path := c.Request.URL.Path
 		log.Printf("📌 MÉTHODE: %s", method)
 		log.Printf("📌 CHEMIN: %s", path)
 
-		// Paramètres de la requête
 		queryParams := c.Request.URL.Query()
 		if len(queryParams) > 0 {
 			log.Printf("📝 PARAMÈTRES:")
@@ -34,32 +31,25 @@ func LoggerMiddleware() gin.HandlerFunc {
 			}
 		}
 
-		// Headers importants
 		log.Printf("📋 HEADERS IMPORTANTS:")
 		log.Printf("   - Content-Type: %s", c.GetHeader("Content-Type"))
 		log.Printf("   - User-Agent: %s", c.GetHeader("User-Agent"))
 
-		// Pour les requêtes avec un corps
 		if method == "POST" || method == "PUT" || method == "PATCH" {
 			log.Printf("📊 TYPE DE CONTENU: %s", c.ContentType())
 			
-			// Lire et logger le corps de la requête
 			var bodyBytes []byte
 			if c.Request.Body != nil {
 				bodyBytes, _ = io.ReadAll(c.Request.Body)
-				// Restaurer le corps pour que les handlers puissent le lire
 				c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
-				// Logger le corps de la requête
 				log.Printf("📄 CORPS DE LA REQUÊTE: %s", string(bodyBytes))
 			}
 		}
 
-		// Calcul du temps de traitement
 		startTime := time.Now()
-		c.Next() // Exécution de la requête
+		c.Next()
 		duration := time.Since(startTime)
 
-		// Informations sur la réponse
 		log.Printf("\n--------------------------------------------------")
 		log.Printf("⬅️ RÉPONSE - Traitement en %v", duration)
 		log.Printf("--------------------------------------------------")
