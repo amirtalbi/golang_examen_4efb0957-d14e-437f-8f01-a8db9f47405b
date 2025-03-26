@@ -21,7 +21,7 @@ func main() {
 	}
 
 	// Create request for forgot-password
-	forgotUrl := "http://localhost:8081/4efb0957-d14e-437f-8f01-a8db9f47405b/forgot-password"
+	forgotUrl := "http://localhost:8080/4efb0957-d14e-437f-8f01-a8db9f47405b/forgot-password"
 	req, err := http.NewRequest("POST", forgotUrl, bytes.NewBuffer(jsonData))
 	if err != nil {
 		log.Fatalf("Failed to create request: %v", err)
@@ -52,7 +52,7 @@ func main() {
 	}
 
 	// Create request for reset-password
-	resetUrl := "http://localhost:8081/4efb0957-d14e-437f-8f01-a8db9f47405b/reset-password"
+	resetUrl := "http://localhost:8080/4efb0957-d14e-437f-8f01-a8db9f47405b/reset-password"
 	req, err = http.NewRequest("POST", resetUrl, bytes.NewBuffer(jsonData))
 	if err != nil {
 		log.Fatalf("Failed to create request: %v", err)

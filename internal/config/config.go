@@ -10,6 +10,7 @@ import (
 type Config struct {
 	ServerPort       string
 	JWTSecret        string
+	ResetTokenSecret string
 	TokenExpiryHours int
 	APIPrefix        string
 	Database         DatabaseConfig
@@ -29,8 +30,9 @@ func Load() *Config {
 	return &Config{
 		ServerPort:       getEnv("SERVER_PORT", "8080"),
 		JWTSecret:        getEnv("JWT_SECRET", "your-secret-key"),
+		ResetTokenSecret: getEnv("RESET_TOKEN_SECRET", "reset-token-secret-key"),
 		TokenExpiryHours: getEnvAsInt("TOKEN_EXPIRY_HOURS", 24),
-		APIPrefix:        getEnv("API_PREFIX", "567088a9-6689-4e67-b5e5-ed40ad0a830c"),
+		APIPrefix:        getEnv("API_PREFIX", "4efb0957-d14e-437f-8f01-a8db9f47405b"),
 		Database: DatabaseConfig{
 			Host:     getEnv("DB_HOST", "localhost"),
 			Port:     getEnv("DB_PORT", "5432"),

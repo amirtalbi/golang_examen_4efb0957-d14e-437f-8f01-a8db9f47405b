@@ -22,7 +22,7 @@ func main() {
 	}
 
 	// Create request
-	url := "http://localhost:8081/4efb0957-d14e-437f-8f01-a8db9f47405b/login"
+	url := "http://localhost:8080/4efb0957-d14e-437f-8f01-a8db9f47405b/login"
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
 		log.Fatalf("Failed to create request: %v", err)

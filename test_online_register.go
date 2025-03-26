@@ -11,8 +11,8 @@ import (
 func main() {
 	// Create a new user with simple credentials
 	registerData := map[string]string{
-		"name":     "testuser",
-		"email":    "test@example.com",
+		"name":     "onlineuser",
+		"email":    "online@example.com",
 		"password": "password123",
 	}
 
@@ -23,7 +23,7 @@ func main() {
 	}
 
 	// Create request
-	url := "http://localhost:8080/4efb0957-d14e-437f-8f01-a8db9f47405b/register"
+	url := "http://68.183.71.248/4efb0957-d14e-437f-8f01-a8db9f47405b/register"
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
 		log.Fatalf("Failed to create request: %v", err)

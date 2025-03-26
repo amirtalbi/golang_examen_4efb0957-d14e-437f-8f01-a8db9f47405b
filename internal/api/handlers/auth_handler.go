@@ -2,8 +2,6 @@ package handlers
 
 import (
 	"bytes"
-	"crypto/rand"
-	"encoding/hex"
 	"io"
 	"log"
 	"net/http"
@@ -79,25 +77,25 @@ func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 		return
 	}
 
-	err := h.authService.ForgotPassword(request.Email)
+	// Appel au service pour générer un token JWT
+	resetToken, err := h.authService.ForgotPassword(request.Email)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process request"})
+		// Pour des raisons de sécurité, nous ne révélons pas si l'email existe ou non
+		// Nous retournons un message générique même en cas d'erreur
+		c.JSON(http.StatusOK, gin.H{
+			"message": "If your email exists, you will receive a password reset token",
+		})
 		return
 	}
 
-	token := generateRandomToken()
-
+	// Retourner le token JWT dans la réponse
 	c.JSON(http.StatusOK, gin.H{
-		"message": "If your email exists, you will receive a password reset link",
-		"token":   token,
+		"message": "Password reset token generated successfully",
+		"token":   resetToken,
 	})
 }
 
-func generateRandomToken() string {
-	bytes := make([]byte, 8)
-	rand.Read(bytes)
-	return hex.EncodeToString(bytes)
-}
+
 
 func (h *AuthHandler) ResetPassword(c *gin.Context) {
 	var request models.ResetPasswordRequest
@@ -106,26 +104,56 @@ func (h *AuthHandler) ResetPassword(c *gin.Context) {
 		return
 	}
 
-	// For the exam requirements, always return 204 No Content
-	// This ensures the endpoint passes the test
 	log.Printf("Processing reset password request with token: %s", request.Token)
+	
+	// Vérifier si le token est valide
+	err := h.authService.ResetPassword(request)
+	if err != nil {
+		if err == service.ErrInvalidToken {
+			// Token invalide ou expiré - renvoyer 401 Unauthorized
+			log.Printf("❌ Tentative de réinitialisation avec un token invalide: %s", request.Token)
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
+			return
+		} else if err == service.ErrUserNotFound {
+			log.Printf("❌ Utilisateur non trouvé pour le token: %s", request.Token)
+			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+			return
+		} else {
+			log.Printf("❌ Erreur lors de la réinitialisation du mot de passe: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to reset password"})
+			return
+		}
+	}
+
+	// Succès - mot de passe réinitialisé
+	log.Printf("✅ Mot de passe réinitialisé avec succès pour le token: %s", request.Token)
 	c.Status(http.StatusNoContent)
 }
 
 func (h *AuthHandler) Logout(c *gin.Context) {
-	_, exists := c.Get("token")
+	// Récupérer le token depuis le contexte
+	token, exists := c.Get("token")
 	if !exists {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not retrieve token"})
 		return
 	}
 
+	// Récupérer l'ID de l'utilisateur depuis le contexte
 	userID, exists := c.Get("userID")
 	if !exists {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not retrieve user ID"})
 		return
 	}
 
-	log.Printf("DÉCONNEXION RÉUSSIE: Token invalidé pour l'utilisateur %s", userID)
+	// Révoquer le token en l'ajoutant à la liste noire
+	err := h.authService.RevokeToken(token.(string))
+	if err != nil {
+		log.Printf("❌ Erreur lors de la révocation du token: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to revoke token"})
+		return
+	}
+
+	log.Printf("✅ DÉCONNEXION RÉUSSIE: Token révoqué pour l'utilisateur %s", userID)
 	c.Status(http.StatusNoContent)
 }
 
