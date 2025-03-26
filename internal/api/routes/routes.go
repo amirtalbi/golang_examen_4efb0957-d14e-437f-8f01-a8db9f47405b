@@ -25,9 +25,10 @@ func SetupRouter(cfg *config.Config, authService service.AuthService, userServic
 	{
 		authRoutes.POST("/register", authHandler.Register)
 		authRoutes.POST("/login", authHandler.Login)
-		authRoutes.POST("/refresh", authHandler.RefreshToken) // Nouvel endpoint
 		authRoutes.POST("/forgot-password", authHandler.ForgotPassword)
 		authRoutes.POST("/reset-password", authHandler.ResetPassword)
+		// Moved refresh endpoint outside of protected routes
+		authRoutes.POST("/refresh", authHandler.RefreshToken)
 	}
 
 	protected := apiGroup.Group("/")

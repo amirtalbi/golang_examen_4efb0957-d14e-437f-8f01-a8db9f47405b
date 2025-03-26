@@ -181,6 +181,7 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 
 	log.Printf("REFRESH TOKEN - Token à vérifier: %s", request.RefreshToken)
 
+	// Ignorer le token d'accès dans l'en-tête Authorization et utiliser uniquement le refresh token
 	response, err := h.authService.RefreshToken(request.RefreshToken)
 	if err != nil {
 		if err == service.ErrInvalidToken {
